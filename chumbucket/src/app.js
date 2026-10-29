@@ -7,6 +7,8 @@ import { openStore } from './store.js';
 import { digest, secret, invitationPassphrase, passwordMatches, requireValue, itemName, HttpError } from './security.js';
 
 const DAY = 86400000;
+// Never trust the uploaded Content-Type for inline responses.
+const inlineTypes = { jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', gif:'image/gif', webp:'image/webp', avif:'image/avif', bmp:'image/bmp', mp3:'audio/mpeg', m4a:'audio/mp4', mp4:'video/mp4', webm:'video/webm', ogg:'audio/ogg', oga:'audio/ogg', ogv:'video/ogg', wav:'audio/wav', flac:'audio/flac', mov:'video/quicktime', pdf:'application/pdf' };
 const mutations = new Set(['POST', 'PATCH', 'DELETE', 'PUT']);
 export async function createApp(options = {}) {
   const publicUrl = new URL(options.origin || 'http://localhost:3001');
@@ -223,7 +225,7 @@ export async function createApp(options = {}) {
           throw error;
         }
       }
-      const itemRoute = route.match(/^\/api\/items\/([a-f0-9-]{36})(\/download)?$/);
+      const itemRoute = route.match(/^\/api\/items\/([a-f0-9-]{36})(\/(?:download|view))?$/);
       if (itemRoute && !itemRoute[2] && method === 'PATCH') {
         const body = await jsonBody(req), row = authorize(user, itemRoute[1]);
         requireValue(Object.keys(body).length > 0 && Object.keys(body).every(key => ['name', 'frozen'].includes(key)), 400, 'Only name and frozen may be updated.');
@@ -287,6 +289,26 @@ export async function createApp(options = {}) {
         const row = authorize(user, id); requireValue(row.kind === 'file', 404, 'File not found.');
         const { file, stat } = blobPath(id);
         if (!row.frozen && Date.now() - stat.mtimeMs >= DAY) { removeItems([id]); throw new HttpError(404, 'File expired.'); }
+        if (itemRoute?.[2] === '/view') {
+          const ext = row.name.toLowerCase().split('.').pop();
+          const type = Object.hasOwn(inlineTypes, ext) && row.name.includes('.') ? inlineTypes[ext] : null;
+          requireValue(type, 415, 'This file type cannot be viewed inline.');
+          const headers = { 'Content-Type': type, 'Content-Disposition': 'inline', 'Accept-Ranges': 'bytes', 'Content-Security-Policy': "sandbox; default-src 'none'; frame-ancestors 'none'" };
+          let start = 0, end = stat.size - 1, status = 200;
+          if (req.headers.range && method === 'GET') {
+            const match = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range);
+            if (!match || (!match[1] && !match[2]) || stat.size === 0) { res.writeHead(416, { 'Content-Range': `bytes */${stat.size}` }); return res.end(); }
+            if (!match[1]) { const suffix = Number(match[2]); start = Math.max(0, stat.size - suffix); }
+            else { start = Number(match[1]); if (match[2]) end = Math.min(Number(match[2]), end); }
+            if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start > end || start >= stat.size) { res.writeHead(416, { 'Content-Range': `bytes */${stat.size}` }); return res.end(); }
+            status = 206; headers['Content-Range'] = `bytes ${start}-${end}/${stat.size}`;
+          }
+          headers['Content-Length'] = stat.size === 0 ? 0 : end - start + 1;
+          res.writeHead(status, headers);
+          if (method === 'HEAD' || !stat.size) return res.end();
+          const stream = createReadStream(file, { start, end }); stream.on('error', () => res.destroy());
+          res.on('close', () => stream.destroy()); stream.pipe(res); return;
+        }
         res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': stat.size,
           'Content-Disposition': `attachment; filename="download"; filename*=UTF-8''${encodeURIComponent(row.name).replace(/['()*]/g, char => '%' + char.charCodeAt(0).toString(16))}` });
         if (method === 'HEAD') return res.end();

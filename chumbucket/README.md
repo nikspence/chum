@@ -70,9 +70,9 @@ Environment variables can be placed in `.env` (gitignored). Relative `DATA_DIR` 
 
 Use an HTTPS reverse proxy in deployment, set `PUBLIC_ORIGIN` to the browser-facing HTTPS origin and `COOKIE_SECURE=true`, and serve Chum and the API on that same origin. The backend listener itself speaks HTTP. No cross-origin CORS access is enabled. Changing the sharing `domain` setting changes generated links only; it does not change the allowed origin, provision DNS, or configure TLS.
 
-Sessions use random opaque cookies with `HttpOnly`, `SameSite=Lax`, and `Secure` over HTTPS. Only session-token hashes are stored in SQLite. Mutations require `X-Chum-Request: 1`, an accepted Origin when present, and an authenticated `X-CSRF-Token` (except login). `GET /api/session` retrieves the session and CSRF token after a reload. Sign-out deletes the session. Each guest request rechecks invitation expiry, revocation and folder existence, including downloads. Downloads are attachments with `nosniff` and `no-store` headers. Path traversal, unsafe Windows filenames, symlink blobs, and hard-linked blobs are rejected.
+Sessions use random opaque cookies with `HttpOnly`, `SameSite=Lax`, and `Secure` over HTTPS. Only session-token hashes are stored in SQLite. Mutations require `X-Chum-Request: 1`, an accepted Origin when present, and an authenticated `X-CSRF-Token` (except login). `GET /api/session` retrieves the session and CSRF token after a reload. Sign-out deletes the session. Each guest request rechecks invitation expiry, revocation and folder existence, including downloads and inline views. Downloads are attachments; inline views use a fixed media-type allowlist, sandbox policy and byte ranges for seeking. Both use `nosniff` and `no-store` headers. Path traversal, unsafe Windows filenames, symlink blobs, and hard-linked blobs are rejected.
 
-Login and token exchanges are limited to 15 attempts per direct remote IP and 100 globally per 15 minutes, including successful attempts. Limits persist across restarts. Forwarded IP headers are deliberately ignored; behind a reverse proxy, clients generally share the proxy's IP limit. Adjust the deployment's authentication rate limiting strategy if the small-group defaults become restrictive. Uploads have a 15-minute request timeout; JSON bodies are limited to 16 KiB. There is no aggregate disk quota or resumable/range download support.
+Login and token exchanges are limited to 15 attempts per direct remote IP and 100 globally per 15 minutes, including successful attempts. Limits persist across restarts. Forwarded IP headers are deliberately ignored; behind a reverse proxy, clients generally share the proxy's IP limit. Adjust the deployment's authentication rate limiting strategy if the small-group defaults become restrictive. Uploads have a 15-minute request timeout; JSON bodies are limited to 16 KiB. There is no aggregate disk quota or resumable upload support.
 
 ## API
 
@@ -92,6 +92,7 @@ Responses are JSON except downloads and invitation redirects. Errors are `{ "err
 | PATCH | `/api/items/:id` | `{name?, frozen?}` → `{item}` |
 | DELETE | `/api/items/:id` | Delete item (recursive for admin) |
 | GET, HEAD | `/api/items/:id/download` | Cookie-authenticated attachment |
+| GET, HEAD | `/api/items/:id/view` | Cookie-authenticated inline image, audio, video or PDF; single byte ranges supported on GET |
 | GET, HEAD | `/<folders>/<filename>` | Cookie-authenticated attachment using logical path |
 | GET | `/api/links` | Admin only → `{links}` with retained history |
 | POST | `/api/links` | Admin only: `{folder?, hours?}` → `{link}` |

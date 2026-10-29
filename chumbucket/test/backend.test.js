@@ -156,6 +156,35 @@ test('migration preserves old frozen files with unknown freezer', async t => {
   } finally { await migrated.close(); }
 });
 
+test('inline media is scoped, safely typed and supports byte ranges', async t => {
+  const { admin, client } = await fixture(t);
+  const folder = (await admin('/api/folders', 'POST', { name: 'Shared' })).data.item;
+  const file = (await admin(`/api/files?parent=${folder.id}&name=sample.mp4`, 'POST', '0123456789', { 'Content-Type': 'text/html' })).data.item;
+  const pdf = (await admin('/api/files?name=sample.pdf', 'POST', '%PDF-test')).data.item;
+  const unsafe = (await admin('/api/files?name=unsafe.svg', 'POST', '<svg/>')).data.item;
+  const view = `/api/items/${file.id}/view`;
+  const whole = await admin(view);
+  assert.equal(whole.status, 200); assert.equal(whole.data, '0123456789');
+  assert.equal(whole.headers.get('content-type'), 'video/mp4');
+  assert.equal(whole.headers.get('content-disposition'), 'inline');
+  assert.match(whole.headers.get('content-security-policy'), /sandbox/);
+  assert.equal(whole.headers.get('x-content-type-options'), 'nosniff');
+  const partial = await admin(view, 'GET', undefined, { Range: 'bytes=2-5' });
+  assert.equal(partial.status, 206); assert.equal(String(partial.data), '2345');
+  assert.equal(partial.headers.get('content-range'), 'bytes 2-5/10');
+  assert.equal(String((await admin(view, 'GET', undefined, { Range: 'bytes=-3' })).data), '789');
+  assert.equal((await admin(view, 'GET', undefined, { Range: 'bytes=20-' })).status, 416);
+  assert.equal((await admin(view, 'HEAD')).headers.get('content-length'), '10');
+  assert.equal((await admin(`/api/items/${pdf.id}/view`)).headers.get('content-type'), 'application/pdf');
+  assert.equal((await admin(`/api/items/${unsafe.id}/view`)).status, 415);
+  const guest = client(), invitation = (await admin('/api/links', 'POST', { folder: folder.id })).data.link;
+  await guest('/api/session', 'POST', { passphrase: invitation.passphrase });
+  assert.equal((await guest(view)).status, 200);
+  assert.equal((await guest(`/api/items/${pdf.id}/view`)).status, 404);
+  await admin(`/api/links/${invitation.id}/revoke`, 'POST');
+  assert.equal((await guest(view)).status, 401);
+});
+
 test('filesystem expiry, frozen files, rename and thaw timestamps', async t => {
   const { admin, app, directory } = await fixture(t);
   const upload = async name => (await admin(`/api/files?name=${name}`, 'POST', 'test')).data.item;

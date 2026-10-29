@@ -6,6 +6,8 @@ The backend owns authentication, authorization, invitations, metadata and privat
 
 Guests can freeze accessible files and thaw files frozen by their invitation identity. Admins can thaw any file, including files frozen before freezer identities were recorded.
 
+Open images in a folder slideshow, play audio and video with folder playlists, or open PDFs in a new tab. Downloads remain available from the file actions. Inline viewing uses the same session and invitation checks as downloads.
+
 New guest invitations include a three-word passphrase that can be shared by phone; guests can type the words with spaces or hyphens. Existing hexadecimal passphrases still work until expiry or revocation. The random invitation link is harder to guess than the three-word phrase. Limit invitation scope and lifetime and revoke access when finished.
 
 ## Local development on Windows

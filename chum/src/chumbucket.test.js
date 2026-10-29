@@ -23,6 +23,7 @@ test('API adapter keeps credentials and CSRF on the right requests',async()=>{
  assert.equal(calls[3].method,'HEAD');
  assert.equal(calls[3].headers['X-CSRF-Token'],undefined);
  assert.equal(client.downloadUrl('file/id'),'/api/items/file%2Fid/download');
+ assert.equal(client.viewUrl('file/id'),'/api/items/file%2Fid/view');
 });
 
 test('API errors retain status, surface backend errors and clear stale CSRF',async()=>{

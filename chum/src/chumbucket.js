@@ -42,6 +42,7 @@ export function createChumbucketClient(base = '', fetcher = (...args) => fetch(.
     remove: id => request(`/api/items/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     checkDownload: id => request(`/api/items/${encodeURIComponent(id)}/download`, { method: 'HEAD' }),
     downloadUrl: id => `${base}/api/items/${encodeURIComponent(id)}/download`,
+    viewUrl: id => `${base}/api/items/${encodeURIComponent(id)}/view`,
     links: () => request('/api/links'),
     invite: (folder, hours) => request('/api/links', { method: 'POST', body: { folder, hours } }),
     revoke: id => request(`/api/links/${encodeURIComponent(id)}/revoke`, { method: 'POST' }),

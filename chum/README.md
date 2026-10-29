@@ -37,6 +37,7 @@ Restart Vite after changing environment variables. Use `localhost` consistently 
 - File tree, ownership, expiry and frozen state loaded from the authorized backend listing.
 - Raw file uploads, one request per selected/dropped file, without buffering file contents into localStorage or IndexedDB.
 - Real downloads via `/api/items/:id/download`, with a HEAD check for unavailable files or lost access.
+- Click supported images for a folder slideshow with full screen; audio and video open native players with playlists from the same folder. PDFs open in a new browser tab. Other files download as before, and download buttons remain available for all files. Playback support depends on the browser's codecs.
 - Nested folders, creation, owner/admin renaming, and permission-checked deletion.
 - Freeze and thaw through the backend. Guests can thaw only files frozen by their invitation identity; admins can thaw any file. Previously frozen files with no recorded freezer require an admin to thaw. The server manages all file expiry, including while the UI is closed.
 - Server-generated invitations, QR codes, copyable links/passphrases, retained history and revocation.

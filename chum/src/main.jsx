@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QRCodeSVG } from 'qrcode.react';
 import { ArrowDown, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUp, ArrowUpRight, Check, ChevronDown, ChevronRight, Clock3, Copy, File, FileText, Folder, FolderPlus, HelpCircle, Image, LayoutGrid, Link2, List, LogOut, Menu, MoreHorizontal, Music2, Search, Settings2, ShieldCheck, Snowflake, Trash2, Upload, Users, Waves, X } from 'lucide-react';
-import { DAY, alive, within, canDelete, canFreezeOrThaw, sharingOrigin } from './model';
+import { DAY, alive, within, canDelete, canFreezeOrThaw, sharingOrigin, mediaKind, folderPlaylist } from './model';
 import { useBucket } from './useBucket';
 import './style.css';
 
@@ -53,6 +53,12 @@ function App() {
      await bucket.api.checkDownload(item.id);
      const a=document.createElement('a');a.href=bucket.api.downloadUrl(item.id);a.download=item.name;document.body.append(a);a.click();a.remove();
    } catch(error){notify(error.message);await bucket.refresh().catch(()=>{});}
+ }
+ function openFile(item){
+   const kind=mediaKind(item);
+   if(kind==='pdf'){window.open(bucket.api.viewUrl(item.id),'_blank','noopener');return;}
+   if(kind){setModal({type:'viewer',item});return;}
+   download(item);
  }
  async function copy(text){try{await navigator.clipboard.writeText(text);notify('Copied to clipboard.');}catch{setModal({type:'copy',text});}}
  async function login(e){
@@ -108,9 +114,10 @@ function App() {
   <footer className="site-footer"><span className="footer-brand">chum.</span><span>Good things, shared.</span><span className="demo-label">{bucket.error?'CONNECTION INTERRUPTED':'SERVER CONNECTED'} <span/></span></footer>
   </main></div><input className="hidden" type="file" multiple ref={input} onChange={e=>upload(e.target.files)}/>
   {toast&&<div className="toast" role="status"><Check size={17}/>{toast}<button aria-label="Dismiss notification" onClick={()=>setToast('')}><X size={15}/></button></div>}
-  {modal&&<Modal key={modal.type} onClose={()=>setModal(null)}>{renderModalContent()}</Modal>}
+  {modal&&<Modal key={modal.type} wide={modal.type==='viewer'} onClose={()=>setModal(null)}>{renderModalContent()}</Modal>}
  </div>;
  function renderModalContent(){
+  if(modal.type==='viewer')return <MediaViewer item={modal.item} items={items} api={bucket.api}/>;
   if(modal.type==='folder'||modal.type==='rename')return <><span className="modal-icon"><FolderPlus/></span><h2>{modal.type==='folder'?'A new little corner.':'Give it a fresh name.'}</h2><p>{modal.type==='folder'?'Keep your shared things together.':'A good name makes things easier to find.'}</p><form onSubmit={saveName}><label className="field">{modal.type==='folder'?'Folder name':'Name'}<input name="name" autoFocus defaultValue={modal.name} required maxLength={180}/></label><button className="btn primary full" disabled={busy}>{modal.type==='folder'?'Create folder':'Save name'}<ArrowRight size={16}/></button></form></>;
   if(modal.type==='share')return <><span className="modal-icon"><Link2/></span><h2>Invite a chum.</h2><p>A little access. A lot of good company.</p><form onSubmit={invite}><label className="field">Open this folder<select name="folder" defaultValue={modal.folder}><option value="root">The whole bucket</option>{items.filter(x=>x.kind==='folder').map(x=><option value={x.id} key={x.id}>{folderPath(x.id)}</option>)}</select></label><label className="field">Keep the invitation open for (hours)<input name="hours" type="number" min="0.001" max="8760" step="any" defaultValue={modal.hours} required/></label><div className="inline-info"><ShieldCheck size={17}/><span>Your chum can upload and download, and only delete their own files.</span></div><button className="btn primary full" disabled={busy}>Create access link<ArrowRight size={16}/></button></form></>;
   if(modal.type==='created'){const link=modal.link;return <><span className="modal-icon"><Users/></span><h2>Good company, incoming.</h2><p>Send this invitation to someone you like.</p><div className="qr-wrap"><QRCodeSVG value={linkUrl(link)} size={150} bgColor="#ffffff" fgColor="#244e43" level="M" marginSize={2}/></div><label className="field">Access link<div className="copy-field"><input readOnly value={linkUrl(link)}/><button aria-label="Copy link" onClick={()=>copy(linkUrl(link))}><Copy size={17}/></button></div></label><label className="field">Or share this passphrase by phone<button className="phrase-box" onClick={()=>copy(link.passphrase)}>{link.passphrase}<Copy size={16}/></button></label><div className="invitation-expiry"><Clock3 size={14}/>Expires {new Date(link.expires).toLocaleString()}</div><p className="modal-demo">This invitation opens the shared folder on any device.</p><button className="btn primary full" onClick={()=>setModal(null)}>All set<Check size={16}/></button></>;}
@@ -122,6 +129,21 @@ function App() {
  }
  function folderPath(id){const names=[];const visited=new Set();while(id!=='root'&&!visited.has(id)){visited.add(id);const f=items.find(x=>x.id===id);if(!f)break;names.unshift(f.name);id=f.parent;}return names.join(' / ');}
 }
-function Modal({children,onClose}){const ref=useRef();useEffect(()=>{const previous=document.activeElement;const el=ref.current;const focusable=()=>Array.from(el.querySelectorAll('button,input,select,textarea,a[href]')).filter(x=>!x.disabled);(el.querySelector('[autofocus]')||focusable()[0])?.focus();const trap=e=>{if(e.key!=='Tab')return;const nodes=focusable(),first=nodes[0],last=nodes.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}};el.addEventListener('keydown',trap);const original=document.body.style.overflow;document.body.style.overflow='hidden';return()=>{document.body.style.overflow=original;el.removeEventListener('keydown',trap);previous?.focus();};},[]);return <div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&onClose()}><section ref={ref} className="modal" role="dialog" aria-modal="true" aria-label="Chum dialog"><button className="modal-close icon-btn" onClick={onClose} aria-label="Close dialog"><X size={20}/></button>{children}</section></div>;}
+function MediaViewer({item,items,api}){
+ const kind=mediaKind(item), playlist=folderPlaylist(items,item), [current,setCurrent]=useState(item.id), [slideshow,setSlideshow]=useState(false), [error,setError]=useState('');
+ const frame=useRef(), index=playlist.findIndex(x=>x.id===current), selected=playlist[index];
+ function choose(id){setError('');setCurrent(id);}
+ function move(delta){if(playlist.length)choose(playlist[(Math.max(index,0)+delta+playlist.length)%playlist.length].id);}
+ useEffect(()=>{if(!slideshow||kind!=='image'||playlist.length<2)return;const timer=setInterval(()=>setCurrent(id=>{const i=playlist.findIndex(x=>x.id===id);return playlist[(i+1)%playlist.length].id;}),4000);return()=>clearInterval(timer);},[slideshow,kind,playlist.map(x=>x.id).join('|')]);
+ if(!selected)return <div className="media-viewer"><h2>File unavailable</h2><p>This file may have expired or been removed.</p></div>;
+ const url=api.viewUrl(selected.id);
+ return <div className="media-viewer" ref={frame}><h2>{selected.name}</h2><p>{index+1} of {playlist.length} · {kind==='image'?'Images':kind==='audio'?'Audio':'Videos'} in this folder</p>
+  <div className="media-stage">{kind==='image'?<img key={url} src={url} alt={selected.name} onError={()=>setError('Unable to display this image. It may have expired or your access may have ended.')}/>:kind==='audio'?<audio key={url} src={url} controls autoPlay onEnded={()=>{if(index<playlist.length-1)move(1);}} onError={()=>setError('Unable to play this file. It may be unavailable or unsupported by your browser.')}/>:<video key={url} src={url} controls autoPlay playsInline onEnded={()=>{if(index<playlist.length-1)move(1);}} onError={()=>setError('Unable to play this file. It may be unavailable or unsupported by your browser.')}/>}</div>
+  {error&&<p role="alert">{error}</p>}
+  <div className="media-controls"><button className="btn secondary" onClick={()=>move(-1)} disabled={playlist.length<2}>Previous</button><button className="btn secondary" onClick={()=>move(1)} disabled={playlist.length<2}>Next</button>{kind==='image'&&<><button className="btn secondary" onClick={()=>setSlideshow(!slideshow)} disabled={playlist.length<2}>{slideshow?'Pause slideshow':'Play slideshow'}</button><button className="btn secondary" onClick={()=>frame.current?.requestFullscreen?.().catch(()=>setError('Full screen is unavailable in this browser.'))}>Full screen</button></>}</div>
+  <ol className="media-playlist" aria-label={`${kind} playlist`}>{playlist.map(file=><li key={file.id}><button aria-current={file.id===current?'true':undefined} onClick={()=>choose(file.id)}>{file.name}</button></li>)}</ol>
+ </div>;
+}
+function Modal({children,onClose,wide=false}){const ref=useRef();useEffect(()=>{const previous=document.activeElement;const el=ref.current;const focusable=()=>Array.from(el.querySelectorAll('button,input,select,textarea,a[href]')).filter(x=>!x.disabled);(el.querySelector('[autofocus]')||focusable()[0])?.focus();const trap=e=>{if(e.key!=='Tab')return;const nodes=focusable(),first=nodes[0],last=nodes.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}};el.addEventListener('keydown',trap);const original=document.body.style.overflow;document.body.style.overflow='hidden';return()=>{document.body.style.overflow=original;el.removeEventListener('keydown',trap);previous?.focus();};},[]);return <div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&onClose()}><section ref={ref} className={`modal${wide?' media-modal':''}`} role="dialog" aria-modal="true" aria-label="Chum dialog"><button className="modal-close icon-btn" onClick={onClose} aria-label="Close dialog"><X size={20}/></button>{children}</section></div>;}
 createRoot(document.getElementById('root')).render(<App/>);
 

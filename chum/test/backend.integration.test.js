@@ -47,11 +47,15 @@ test('frontend adapter and Vite proxy integrate with Chumbucket', {skip:!existsS
  await admin.api.update(file.id,{frozen:false,name:'renamed.txt'});
  await admin.api.checkDownload(file.id);
  assert.equal(await(await admin.fetch(admin.api.downloadUrl(file.id))).text(),'hello, chum!');
+ const {item:media}=await admin.api.upload(nested.id,new File(['0123456789'],'clip.mp4',{type:'video/mp4'}));
+ const mediaResponse=await admin.fetch(admin.api.viewUrl(media.id),{headers:{Range:'bytes=2-5'}});
+ assert.equal(mediaResponse.status,206);assert.equal(await mediaResponse.text(),'2345');
  const {settings}=await admin.api.saveSettings({domain:base,hours:6});
  assert.deepEqual(settings,{domain:base,hours:6});
  const {link}=await admin.api.invite(folder.id,6);
  assert.equal((await admin.api.links()).links.length,1);
  await guest.api.login(link.passphrase);
+ assert.equal((await guest.fetch(guest.api.viewUrl(media.id))).status,200);
  assert.equal((await guest.api.session()).user.root,folder.id);
  await assert.rejects(guest.api.list('root'),e=>e.status===404);
  await assert.rejects(guest.api.remove(file.id),e=>e.status===403);
