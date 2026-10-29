@@ -7,6 +7,7 @@ import { once } from 'node:events';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createApp } from '../src/app.js';
+import { words } from '../src/words.js';
 
 const password = 'a-long-test-admin-password';
 async function fixture(t, options = {}) {
@@ -93,6 +94,24 @@ test('invitation scoping, ownership, recursive deletion, revocation and retained
   assert.equal(history.find(x => x.id === link.id).revoked, true);
   await admin(`/api/items/${folder.id}`, 'DELETE');
   assert.equal((await stranger('/api/folders')).status, 401);
+});
+
+test('word invitations accept spoken-friendly input and existing hexadecimal phrases still work', async t => {
+  const { admin, client, app } = await fixture(t);
+  assert.equal(new Set(words).size, words.length);
+  assert.ok(words.length >= 250 && words.every(word => /^[a-z]+$/.test(word)));
+  const link = (await admin('/api/links', 'POST', {})).data.link;
+  const parts = link.passphrase.split('-');
+  assert.equal(parts.length, 3);
+  assert.ok(parts.every(word => words.includes(word)));
+  assert.equal((await client()('/api/session', 'POST', { passphrase: `  ${parts.join('  ').toUpperCase()}  ` })).status, 200);
+  assert.equal((await client()('/api/session', 'POST', { passphrase: parts.join(' - ') })).status, 200);
+  assert.equal((await client()('/api/session', 'POST', { passphrase: parts.slice(0, 2).join('-') })).status, 401);
+  const old = (await admin('/api/links', 'POST', {})).data.link;
+  const legacy = '01234567-89abcdef-12345678';
+  app.store.db.prepare('UPDATE links SET passphrase=? WHERE id=?').run(legacy, old.id);
+  assert.equal((await client()('/api/session', 'POST', { passphrase: legacy })).status, 200);
+  assert.equal((await admin('/api/links')).data.links.find(item => item.id === old.id).passphrase, legacy);
 });
 
 test('filesystem expiry, frozen files, rename and thaw timestamps', async t => {

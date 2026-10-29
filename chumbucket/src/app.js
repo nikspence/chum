@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { createReadStream, lstatSync, realpathSync, unlinkSync, utimesSync } from 'node:fs';
 import { open, rename, unlink } from 'node:fs/promises';
 import { openStore } from './store.js';
-import { digest, secret, passwordMatches, requireValue, itemName, HttpError } from './security.js';
+import { digest, secret, invitationPassphrase, passwordMatches, requireValue, itemName, HttpError } from './security.js';
 
 const DAY = 86400000;
 const mutations = new Set(['POST', 'PATCH', 'DELETE', 'PUT']);
@@ -156,7 +156,7 @@ export async function createApp(options = {}) {
         const body = await jsonBody(req);
         requireValue(typeof body.passphrase === 'string' && body.passphrase.length <= 1024, 400, 'Passphrase required.');
         const isAdmin = await passwordMatches(body.passphrase, getConfig('adminHash'));
-        const phrase = body.passphrase.trim().toLowerCase().replace(/\s+/g, '-');
+        const phrase = body.passphrase.trim().toLowerCase().replace(/\s*-\s*|\s+/g, '-');
         const link = db.prepare('SELECT * FROM links WHERE passphrase=?').get(phrase);
         requireValue(isAdmin || active(link), 401, 'Invalid passphrase or expired invitation.');
         let previous; try { previous = authenticate(req); } catch { /* no existing session */ }
@@ -253,7 +253,7 @@ export async function createApp(options = {}) {
         const id = randomUUID(), created = Date.now();
         // Three random hex groups supply 96 bits; no small dictionary to brute force.
         let token, passphrase;
-        do { token = secret(24); passphrase = [secret(4), secret(4), secret(4)].join('-'); }
+        do { token = secret(24); passphrase = invitationPassphrase(); }
         while (db.prepare('SELECT 1 FROM links WHERE token=? OR passphrase=?').get(token, passphrase));
         db.prepare('INSERT INTO links VALUES (?,?,?,?,?,?,0)').run(id, folder, token, passphrase, created, created + hours * 3600000);
         return send(201, { link: exposeLink(linkById(id)) });

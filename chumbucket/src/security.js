@@ -1,8 +1,10 @@
-import { randomBytes, createHash, scrypt, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomInt, createHash, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
+import { words } from './words.js';
 
 const derive = promisify(scrypt);
 export const secret = (bytes = 32) => randomBytes(bytes).toString('hex');
+export const invitationPassphrase = () => Array.from({ length: 3 }, () => words[randomInt(words.length)]).join('-');
 export const digest = value => createHash('sha256').update(value).digest('hex');
 export async function passwordHash(password, salt = secret(16)) {
   const hash = await derive(password, salt, 64);

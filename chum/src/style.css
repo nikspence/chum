@@ -15,3 +15,5 @@
 .sidebar{overflow-y:auto;overflow-x:hidden}.sidebar>*{flex-shrink:0}
 @media(max-height:760px){.sidebar-bottom{padding-top:20px}.little-note{display:none}}
 @media(max-width:700px){.sidebar{visibility:hidden}.sidebar.show{visibility:visible}.hero-banner .bucket-scene{opacity:.45}.hero-copy{z-index:2}}
+
+.login form>p.login-hint{color:#737e71}

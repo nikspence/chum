@@ -1,0 +1,24 @@
+# Dependencies and generated frontend assets
+**/node_modules/
+/chum/dist/
+**/coverage/
+**/.vite/
+
+# Local configuration (keep example files versioned)
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Default backend storage, including uploads and SQLite files
+/chumbucket/data/
+
+# Local logs and operating system/editor files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

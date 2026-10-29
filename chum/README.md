@@ -11,7 +11,7 @@ npm install  # only when dependencies are missing or changed
 npm run dev
 ```
 
-Open **http://localhost:5173** and enter the admin password configured in Chumbucket, or a valid guest passphrase. There is no demo password or seeded content. The login screen contains just a passphrase field and its submit arrow.
+Open **http://localhost:5173** and enter the admin password configured in Chumbucket, or a valid guest passphrase. There is no demo password or seeded content.
 
 Vite proxies `/api/*` and `/?access=<token>` to Chumbucket. The browser only contacts the frontend origin, so the server's HttpOnly cookie works for login, reload, downloads, and guest invitation exchanges without enabling CORS.
 
@@ -52,7 +52,7 @@ Use Settings to set the sharing domain to the browser-facing **frontend** origin
 
 For local development only, if the stored domain exactly matches `VITE_CHUM_BACKEND_ORIGIN`, links and QR codes use the current frontend origin instead. Thus the backend's initial `http://localhost:3001` setting produces working `http://localhost:5173/?access=...` invitations without modifying your stored settings. Explicit custom sharing domains are preserved. Production builds use the server's stored domain as-is.
 
-The backend issues passphrases with **three random hexadecimal groups**, rather than the original demo's three-word dictionary. Chum displays the exact server-issued passphrase. People using the same invitation share its guest identity and upload ownership; issue separate invitations when that distinction matters.
+New guest passphrases contain **three random words**, displayed with hyphens for easy sharing by phone. Guests can enter spaces or hyphens and use any capitalization. Existing hexadecimal passphrases continue to work until expiry or revocation. Three-word phrases offer less guessing resistance than invitation links, and remain valid even when the link is shared instead. Limit the invitation's scope and lifetime, and revoke it when finished. People using the same invitation share its guest identity and upload ownership; issue separate invitations when that distinction matters.
 
 The backend exchanges invitation tokens for a cookie and redirects to `/` before Chum loads. On return, Chum obtains the authorized root folder from `/api/session`; guests never need the admin-only invitation table or settings. Admins following their own links remain admins.
 
