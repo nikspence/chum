@@ -229,12 +229,14 @@ export async function createApp(options = {}) {
         requireValue(Object.keys(body).length > 0 && Object.keys(body).every(key => ['name', 'frozen'].includes(key)), 400, 'Only name and frozen may be updated.');
         if ('name' in body) requireValue(user.role === 'admin' || row.owner === user.id, 403, 'Only the owner or admin may rename an item.');
         if ('frozen' in body) requireValue(row.kind === 'file' && typeof body.frozen === 'boolean', 400, 'Frozen must be a boolean on a file.');
+        if (row.frozen && body.frozen === false) requireValue(user.role === 'admin' || row.frozen_by === user.id, 403, 'Only the guest who froze this file or an admin may thaw it.');
         const name = 'name' in body ? itemName(body.name) : row.name;
         unique(row.parent, name, row.id);
         const frozen = 'frozen' in body ? Number(body.frozen) : row.frozen;
+        const frozenBy = !row.frozen && frozen ? user.id : row.frozen && !frozen ? null : row.frozen_by;
         const modified = name !== row.name || (row.frozen && !frozen) ? Date.now() : row.modified;
         if (row.kind === 'file') utimesSync(blobPath(row.id).file, modified / 1000, modified / 1000);
-        db.prepare('UPDATE items SET name=?,name_key=?,frozen=?,modified=? WHERE id=?').run(name, name.toLowerCase(), frozen, modified, row.id);
+        db.prepare('UPDATE items SET name=?,name_key=?,frozen=?,frozen_by=?,modified=? WHERE id=?').run(name, name.toLowerCase(), frozen, frozenBy, modified, row.id);
         return send(200, { item: expose(get(row.id)) });
       }
       if (itemRoute && !itemRoute[2] && method === 'DELETE') {

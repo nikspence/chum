@@ -43,7 +43,7 @@ data/
 Folders form a logical tree in SQLite. Original file/folder names never become physical storage paths. Stable IDs keep invitations valid when folders are renamed. Downloads resolve the logical tree or use the stable ID and always require an authorized session. The upload directory is never served as a static directory.
 
 - Files expire 24 hours after their filesystem modification time. Startup cleanup and a one-minute timer remove expired, unfrozen files. Listing and individual file access also enforce expiry. Cleanup requires the backend to be running; the next startup handles downtime.
-- Uploads and file renames start a fresh timer. Freeze preserves the modification timestamp; thaw starts a fresh 24-hour timer. Authorized guests may freeze/thaw any file within their invitation, matching Chum's current UI.
+- Uploads and file renames start a fresh timer. Freeze preserves the modification timestamp; thaw starts a fresh 24-hour timer. Guests may freeze accessible files and thaw only files frozen by their own invitation identity. All people using one invitation share that identity. Admins may thaw any file. Files frozen before freezer identities were recorded can only be thawed by an admin; after thawing, the next freeze records its identity.
 - Guests can upload, create folders and download within the invited folder and descendants. Only the owner or admin can rename an item. Guests can delete their own files and their own empty folders; recursive folder deletion is admin-only.
 - A guest identity belongs to an invitation (`guest-<link ID>`), matching Chum's model. People sharing one invitation also share ownership rights. Issue separate invitations when ownership must differ.
 - Deleting a folder revokes invitations for that folder and its descendants. Expired/revoked invitations and all issued keys remain in history; new invitations check the complete history for collisions.
@@ -76,7 +76,7 @@ Login and token exchanges are limited to 15 attempts per direct remote IP and 10
 
 ## API
 
-Responses are JSON except downloads and invitation redirects. Errors are `{ "error": "message" }`. IDs are server-generated UUIDs, and `root` is the bucket's root folder. Item fields match Chum's `src/model.js`: `id`, `parent`, `name`, `kind`, `owner`, `modified` (Unix milliseconds), `size`, `type`, and `frozen`.
+Responses are JSON except downloads and invitation redirects. Errors are `{ "error": "message" }`. IDs are server-generated UUIDs, and `root` is the bucket's root folder. Item fields include `id`, `parent`, `name`, `kind`, `owner`, `modified` (Unix milliseconds), `size`, `type`, `frozen`, and `frozen_by` (the freezer identity or null).
 
 | Method | Route | Body / response |
 | --- | --- | --- |

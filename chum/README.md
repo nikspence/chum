@@ -38,7 +38,7 @@ Restart Vite after changing environment variables. Use `localhost` consistently 
 - Raw file uploads, one request per selected/dropped file, without buffering file contents into localStorage or IndexedDB.
 - Real downloads via `/api/items/:id/download`, with a HEAD check for unavailable files or lost access.
 - Nested folders, creation, owner/admin renaming, and permission-checked deletion.
-- Freeze and thaw through the backend. The server manages all file expiry, including while the UI is closed.
+- Freeze and thaw through the backend. Guests can thaw only files frozen by their invitation identity; admins can thaw any file. Previously frozen files with no recorded freezer require an admin to thaw. The server manages all file expiry, including while the UI is closed.
 - Server-generated invitations, QR codes, copyable links/passphrases, retained history and revocation.
 - Admin domain and invitation lifetime settings saved to the server; custom lifetimes supported up to 8760 hours.
 - Authorized metadata refresh every 15 seconds while the tab is visible, on focus, and after changes. Expired/revoked sessions return to login. Network failures display a retry notice instead of pretending a local operation succeeded.

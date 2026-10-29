@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createApp } from '../src/app.js';
 import { words } from '../src/words.js';
+import { DatabaseSync } from 'node:sqlite';
 
 const password = 'a-long-test-admin-password';
 async function fixture(t, options = {}) {
@@ -112,6 +113,47 @@ test('word invitations accept spoken-friendly input and existing hexadecimal phr
   app.store.db.prepare('UPDATE links SET passphrase=? WHERE id=?').run(legacy, old.id);
   assert.equal((await client()('/api/session', 'POST', { passphrase: legacy })).status, 200);
   assert.equal((await admin('/api/links')).data.links.find(item => item.id === old.id).passphrase, legacy);
+});
+
+test('only the freezing guest or admin can thaw; repeated freezes cannot take ownership', async t => {
+  const { admin, client, app } = await fixture(t);
+  const file = (await admin('/api/files?name=shared.txt', 'POST', 'contents')).data.item;
+  const firstLink = (await admin('/api/links', 'POST', {})).data.link;
+  const secondLink = (await admin('/api/links', 'POST', {})).data.link;
+  const guest = client(), sameInvitation = client(), other = client();
+  await guest('/api/session', 'POST', { passphrase: firstLink.passphrase });
+  await sameInvitation('/api/session', 'POST', { passphrase: firstLink.passphrase });
+  await other('/api/session', 'POST', { passphrase: secondLink.passphrase });
+  const patch = `/api/items/${file.id}`;
+  assert.equal((await admin(patch, 'PATCH', { frozen: true })).data.item.frozen_by, 'admin');
+  assert.equal((await guest(patch, 'PATCH', { frozen: true })).data.item.frozen_by, 'admin');
+  assert.equal((await guest(patch, 'PATCH', { frozen: false })).status, 403);
+  app.store.db.prepare('UPDATE items SET frozen_by=NULL WHERE id=?').run(file.id);
+  assert.equal((await guest(patch, 'PATCH', { frozen: false })).status, 403);
+  assert.equal((await admin(patch, 'PATCH', { frozen: false })).status, 200);
+  assert.equal((await guest(patch, 'PATCH', { frozen: true })).data.item.frozen_by, `guest-${firstLink.id}`);
+  assert.equal((await other(patch, 'PATCH', { frozen: false })).status, 403);
+  assert.equal((await sameInvitation(patch, 'PATCH', { frozen: false })).status, 200);
+  await guest(patch, 'PATCH', { frozen: true });
+  assert.equal((await admin(patch, 'PATCH', { frozen: false })).data.item.frozen_by, null);
+});
+
+test('migration preserves old frozen files with unknown freezer', async t => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'chumbucket-migration-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const initial = await createApp({ dataDir: directory, adminPassword: password });
+  initial.store.db.prepare("INSERT INTO items (id,parent,name,name_key,kind,owner,modified,frozen) VALUES ('old','root','old','old','file','admin',?,1)").run(Date.now());
+  await initial.close();
+  const old = new DatabaseSync(path.join(directory, 'chumbucket.sqlite'));
+  old.exec('ALTER TABLE items DROP COLUMN frozen_by; PRAGMA user_version=1');
+  old.close();
+  const migrated = await createApp({ dataDir: directory });
+  try {
+    const row = migrated.store.db.prepare("SELECT frozen, frozen_by FROM items WHERE id='old'").get();
+    assert.equal(row.frozen, 1);
+    assert.equal(row.frozen_by, null);
+    assert.equal(migrated.store.db.prepare('PRAGMA user_version').get().user_version, 2);
+  } finally { await migrated.close(); }
 });
 
 test('filesystem expiry, frozen files, rename and thaw timestamps', async t => {

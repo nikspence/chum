@@ -19,7 +19,7 @@ export async function openStore(directory, adminPassword, origin) {
       id TEXT PRIMARY KEY, parent TEXT REFERENCES items(id), name TEXT NOT NULL,
       name_key TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('folder','file')),
       owner TEXT NOT NULL, modified INTEGER NOT NULL, size INTEGER NOT NULL DEFAULT 0,
-      type TEXT NOT NULL DEFAULT '', frozen INTEGER NOT NULL DEFAULT 0,
+      type TEXT NOT NULL DEFAULT '', frozen INTEGER NOT NULL DEFAULT 0, frozen_by TEXT,
       UNIQUE(parent,name_key)
     );
     CREATE INDEX IF NOT EXISTS items_parent ON items(parent);
@@ -35,11 +35,16 @@ export async function openStore(directory, adminPassword, origin) {
     CREATE TABLE IF NOT EXISTS login_attempts (
       key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires INTEGER NOT NULL
     );
-    PRAGMA user_version=1;
   `);
   const getConfig = key => db.prepare('SELECT value FROM config WHERE key=?').get(key)?.value;
   const setConfig = (key, value) => db.prepare('INSERT INTO config VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(key, String(value));
   try {
+    // Older databases did not record who froze a file. Leave that identity
+    // unknown so only an administrator can thaw those files.
+    if (!db.prepare('PRAGMA table_info(items)').all().some(column => column.name === 'frozen_by')) {
+      db.exec('ALTER TABLE items ADD COLUMN frozen_by TEXT');
+    }
+    db.exec('PRAGMA user_version=2');
     if (!getConfig('adminHash')) {
       requireValue(typeof adminPassword === 'string' && adminPassword.length >= 12, 500,
         'Set CHUM_ADMIN_PASSWORD to at least 12 characters for the first start.');

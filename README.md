@@ -4,6 +4,8 @@ Chum is a small, mobile-friendly file-sharing bucket for friends. This repositor
 
 The backend owns authentication, authorization, invitations, metadata and private file storage. Files expire after 24 hours unless frozen; invitations grant access to a folder and its descendants. Chum uses the backend's cookie-based sessions and APIs. The backend must stay running for scheduled cleanup. See the component READMEs for features, configuration, API details, storage, limits and tests.
 
+Guests can freeze accessible files and thaw files frozen by their invitation identity. Admins can thaw any file, including files frozen before freezer identities were recorded.
+
 New guest invitations include a three-word passphrase that can be shared by phone; guests can type the words with spaces or hyphens. Existing hexadecimal passphrases still work until expiry or revocation. The random invitation link is harder to guess than the three-word phrase. Limit invitation scope and lifetime and revoke access when finished.
 
 ## Local development on Windows

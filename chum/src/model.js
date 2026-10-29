@@ -15,6 +15,7 @@ export function within(items, id, root) {
   return false;
 }
 export const canDelete = (item, user, items) => user.role === 'admin' || (item.owner === user.id && (item.kind !== 'folder' || !items.some(x => x.parent === item.id)));
+export const canFreezeOrThaw = (item, user) => item.kind === 'file' && (!item.frozen || user.role === 'admin' || item.frozen_by === user.id);
 
 // The dev proxy accepts the backend's default sharing domain, but links should
 // return to the frontend. Public production domains are always kept as configured.
