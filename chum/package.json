@@ -1,0 +1,32 @@
+{
+  "name": "chum",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A little bucket for sharing files with friends. React frontend for Chumbucket.",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node --test src/*.test.js",
+    "test:integration": "node --test test/backend.integration.test.js"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.17",
+    "@vitejs/plugin-react": "^5.1.1",
+    "tailwindcss": "^4.1.17",
+    "vite": "^7.2.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}

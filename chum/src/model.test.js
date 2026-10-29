@@ -1,0 +1,8 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { alive, within, canDelete, sharingOrigin } from './model.js';
+const items=[{id:'a',parent:'root',kind:'folder',owner:'admin'},{id:'b',parent:'a',kind:'folder',owner:'guest'},{id:'c',parent:'b',kind:'file',owner:'guest'},{id:'d',parent:'root',kind:'file',owner:'other'}];
+test('guest presentation includes descendants and excludes ancestors and siblings',()=>{assert.equal(within(items,'c','a'),true);assert.equal(within(items,'a','a'),true);assert.equal(within(items,'root','a'),false);assert.equal(within(items,'d','a'),false);assert.equal(within(items,'unknown','a'),false);});
+test('delete controls protect others uploads and populated folders',()=>{const guest={id:'guest',role:'guest'};assert.equal(canDelete(items[2],guest,items),true);assert.equal(canDelete(items[3],guest,items),false);assert.equal(canDelete(items[1],guest,items),false);assert.equal(canDelete(items[0],{id:'admin',role:'admin'},items),true);});
+test('expired and revoked invitations are not presented as active',()=>{assert.equal(alive({expires:200},100),true);assert.equal(alive({expires:100},100),false);assert.equal(alive({expires:200,revoked:true},100),false);assert.equal(alive(null),false);});
+test('only local backend links are translated to the frontend in development',()=>{assert.equal(sharingOrigin('http://localhost:3001','http://localhost:5173','http://localhost:3001',true),'http://localhost:5173');assert.equal(sharingOrigin('https://chum.example','http://localhost:5173','http://localhost:3001',true),'https://chum.example');assert.equal(sharingOrigin('http://localhost:3001','https://chum.example','http://localhost:3001',false),'http://localhost:3001');});
