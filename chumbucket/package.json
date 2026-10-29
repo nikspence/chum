@@ -1,0 +1,14 @@
+{
+  "name": "chumbucket",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Filesystem and SQLite backend for Chum",
+  "engines": { "node": ">=24 <25" },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/server.js",
+    "dev": "node --env-file-if-exists=.env --watch src/server.js",
+    "test": "node --test",
+    "check": "node --check src/server.js && node --check src/app.js && node --check src/store.js && node --check src/security.js && node --check client/chumbucket.js"
+  }
+}
